@@ -3,6 +3,7 @@ require "ui/device"
 require "ui/time"
 require "ui/gesturedetector"
 
+
 -- constants from <linux/input.h>
 EV_SYN = 0
 EV_KEY = 1
@@ -20,10 +21,10 @@ SYN_MT_REPORT = 2
 
 -- For multi-touch events (ABS.code).
 ABS_MT_SLOT = 47
-ABS_MT_POSITION_X = 53
-ABS_MT_POSITION_Y = 54
+ABS_MT_POSITION_X = 1
+ABS_MT_POSITION_Y = 0
 ABS_MT_TRACKING_ID = 57
-ABS_MT_PRESSURE = 58
+ABS_MT_PRESSURE = 24
 
 --[[
 an interface for key presses
@@ -275,13 +276,13 @@ function Input:init()
 		local dev_mod = Device:getModel()
 		if dev_mod ~= "KindleTouch" then
 			-- event0 in KindleTouch is "WM8962 Beep Generator" (useless)
-			Device:setTouchInputDev("/dev/input/event0")
-			input.open("/dev/input/event0")
+			-- Device:setTouchInputDev("/dev/input/event0")
+			-- input.open("/dev/input/event0")
 		end
 		if dev_mod ~= "KindleTouch" and dev_mod ~= "KindlePaperWhite" then
 			-- event1 in KindleTouch is "imx-yoshi Headset" (useless)
 			-- and we don't have event1 in KindlePaperWhite
-			input.open("/dev/input/event1")
+		    input.open("/dev/input/event1")
 		end
 		if dev_mod == "KindlePaperWhite" then
 			print(_("Auto-detected Kindle PaperWhite"))
@@ -305,7 +306,32 @@ function Input:init()
 				return ev
 			end
 			print(_("Auto-detected Kindle Touch"))
-		elseif dev_mod == "Kindle4" then
+	
+
+	elseif dev_mod == "KoboGlo" then
+			Device:setTouchInputDev("/dev/input/event1")
+			input.open("/dev/input/event0") -- Light button and sleep slider
+			input.open("/dev/input/event1") -- touchscreen
+	         	self.event_map[116] = "Home"	
+    	-- update event hook
+			function Input:eventAdjustHook(ev)
+				if ev.type == EV_ABS then
+					--@TODO handle coordinates properly after
+					--screen rotate.    (houqp)
+					if ev.code == ABS_MT_POSITION_X then
+						ev.value = math.round(ev.value) -- * (758/4095))
+	                    print("x:", ev.value)
+					elseif ev.code == ABS_MT_POSITION_Y then
+						ev.value = math.round(ev.value) -- * (1024/4095))
+						print("y:", ev.value)
+                   	end
+				end
+				return ev
+			end
+			print(_("Auto-detected Kobo Glo"))
+
+
+	elseif dev_mod == "Kindle4" then
 			print(_("Auto-detected Kindle 4"))
 			self:adjustKindle4EventMap()
 		elseif dev_mod == "Kindle3" then
@@ -447,7 +473,7 @@ function Input:handleTouchEv(ev)
 			local touch_ges = GestureDetector:feedEvent(self.MTSlots)
 			self.MTSlots = {}
 			if touch_ges then
-				return Event:new("Gesture",
+				return Event:new("Gesture", 
 					GestureDetector:adjustGesCoordinate(touch_ges)
 				)
 			end
@@ -461,13 +487,29 @@ function Input:handleTouchEv(ev)
 				table.insert(self.MTSlots, self:getMtSlot(ev.value))
 			end
 			self.cur_slot = ev.value
-		elseif ev.code == ABS_MT_TRACKING_ID then
-			self:setCurrentMtSlot("id", ev.value)
-		elseif ev.code == ABS_MT_POSITION_X then
-			self:setCurrentMtSlot("x", ev.value)
-		elseif ev.code == ABS_MT_POSITION_Y then
-			self:setCurrentMtSlot("y", ev.value)
-		end
+
+        elseif ev.code == ABS_MT_TRACKING_ID then
+	 		self:setCurrentMtSlot("id", ev.value)
+     
+        elseif ev.code == ABS_MT_PRESSURE and self:getCurrentMtSlot(id) == -1 then
+	 		if ev.value ~= 0 then
+	 	         self:setCurrentMtSlot("id", 1)
+			end
+            self.cur_id = 1  
+
+        elseif ev.code == ABS_MT_PRESSURE and self:getCurrentMtSlot(id) ~= -1 then
+          	if ev.value == 0  then
+               self:setCurrentMtSlot("id", -1)
+			end
+            self.cur_id = -1   
+            
+      	elseif ev.code == ABS_MT_POSITION_X then
+          	  self:setCurrentMtSlot("x", (758 - ev.value))
+     
+       elseif ev.code == ABS_MT_POSITION_Y then
+			  self:setCurrentMtSlot("y", ev.value)
+	        
+       end
 	end
 end
 

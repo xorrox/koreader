@@ -25,7 +25,10 @@ function Device:getModel()
 		local kt_test_fd = lfs.attributes("/sys/devices/platform/whitney-button")
 		-- another special file for KT is Neonode zForce touchscreen:
 		-- /sys/devices/platform/zforce.0/
-		if pw_test_fd then
+        --return "KoboGlo"	
+	    if 1 then
+			self.model = "KoboGlo"
+    	elseif pw_test_fd then
 			self.model = "KindlePaperWhite"
 		elseif kt_test_fd then
 			self.model = "KindleTouch"
@@ -80,7 +83,7 @@ function Device:isTouchDevice()
 	if not self.model then
 		self.model = self:getModel()
 	end
-	return (self.model == "KindlePaperWhite") or (self.model == "KindleTouch") or util.isEmulated()
+	return (self.model == "KindlePaperWhite") or (self.model == "KindleTouch")  or (self.model == "KoboGlo") or util.isEmulated()
 end
 
 function Device:setTouchInputDev(dev)
